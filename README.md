@@ -2,4 +2,4 @@
 
 ## TD 1 : Installation de docker
 
-Faire en plusieurs parties. Donc
+Faire en plusieurs parties. $
