@@ -36,16 +36,16 @@ La section ``ports`` sert à établir une correspondance entre le port du conten
 
 Et maintenant, on utilise ``docker compose up -d`` pour créer et démarrer le conteneur spécifiés dans le fichier ``compose.yaml``. Le ``-d`` permet l'exécution en arrière-plan, sans cette option, les logs du conteneur s'afficheront directement dans le terminal.
 
-![alt text](Ressources\img\composeUp.png)
+![alt text](Ressources/img/composeUp.png)
 
 On peut vérifier que le conteneur est bien en cours d'éxecution avec ``docker ps``.
 
-![alt text](Ressources\img\dockerPs.png)
+![alt text](Ressources/img/dockerPs.png)
 
 Maintenant que l'application est lancée, on peut y accéder depuis notre navigateur avec l'URL : ``http://localhost:4200``.
 
-![alt text](Ressources\img\visuelAngular.png)
+![alt text](Ressources/img/visuelAngular.png)
 
 Tout fonctionne ! On peut désormais stopper et supprimer le conteneur avec ``docker compose down``.
 
-![alt text](Ressources\img\composeDown.png)
+![alt text](Ressources/img/composeDown.png)
