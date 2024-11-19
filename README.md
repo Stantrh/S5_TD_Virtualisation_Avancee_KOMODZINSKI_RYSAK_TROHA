@@ -14,7 +14,6 @@ Le fait d'installer directement Docker Desktop permet à la machine de bénéfic
 - Docker Engine (Le moteur de conteneurs).
 - Docker Compose (pour les applications multi-conteneurs).
 
-![alt text](image.png)
 
 Pour vérifier que docker est bien installé, on peut vérifier : 
 ```bash
@@ -59,7 +58,6 @@ On peut faire en sorte que le démon soit lancé après chaque démarrage, de so
 Created symlink /home/stantheman/.config/systemd/user/docker-desktop.service → /usr/lib/systemd/user/docker-desktop.service.
 Created symlink /home/stantheman/.config/systemd/user/graphical-session.target.wants/docker-desktop.service → /usr/lib/systemd/user/docker-desktop.service.
 ```
-
 
 
 
