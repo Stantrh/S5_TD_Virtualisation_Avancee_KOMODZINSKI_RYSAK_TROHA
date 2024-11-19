@@ -1,8 +1,4 @@
-# TD_Virtualisation_Avancee
-
-## TD 1 : Installation de docker
-
-Faire en plusieurs parties. $
+# TD Virtualisation Avancee
 
 ## TD 2 : Namespaces
 
