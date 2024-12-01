@@ -10,11 +10,11 @@ Les **cgroups** sont une fonctionnalité  de Linux qui permet de gérer, surveil
 
 Un cgroup regroupe des processus et applique des règles pour contrôler leur utilisation des ressources système. Ces règles peuvent inclure des limites sur :
 
-**Mémoire** : restreindre la quantité de RAM et de swap utilisée par un groupe de processus.
-**CPU** : limiter le temps CPU qu’un groupe peut utiliser.
-**PIDs** : limiter le nombre de processus enfant pouvant être créés.
-**I/O** : contrôler la vitesse de lecture/écriture sur les disques.
-**Réseau** : gérer la bande passante réseau attribuée aux processus.
+* **Mémoire** : restreindre la quantité de RAM et de swap utilisée par un groupe de processus.
+* **CPU** : limiter le temps CPU qu’un groupe peut utiliser.
+* **PIDs** : limiter le nombre de processus enfant pouvant être créés.
+* **I/O** : contrôler la vitesse de lecture/écriture sur les disques.
+* **Réseau** : gérer la bande passante réseau attribuée aux processus.
 
 Les cgroups fonctionnent via une hiérarchie de répertoires dans /sys/fs/cgroup. Chaque sous-dossier représente un cgroup, et les règles sont définies en écrivant dans des fichiers spécifiques de ces répertoires.
 
