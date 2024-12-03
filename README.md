@@ -188,11 +188,12 @@ Un segment de mémoire partagée a également l'id 2. Mais c'est parce qu'il est
 ### PID
 On crée déjà nos deux namespace : 
 ```bash
-sudo unshare --pid --fork bash
+sudo unshare --fork --pid --mount-proc bash
 ```
 ```bash
-sudo unshare --pid --fork bash
+sudo unshare --fork --pid --mount-proc bash
 ```
+> On utilise l'option `--mount-proc ` pour pouvoir monter sur le namespace le dossier /proc responsable des processus. Si on ne le fait pas, `grep aux` ou toute autre commande relatée aux processus sur le namespace lirait les informations depuis le `/proc` de la machine hôte.
 
 Dans le premier namespace, on va créer un deuxième processus avec `sleep`.
 
@@ -202,39 +203,41 @@ root@stantheman-Aspire-A515-56:/home/stantheman# sleep 100 &
 
 Ensuite, on récupère l'id du processus depuis le premier namespace toujours : 
 ```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# ps -o pid,cmd
-    PID CMD
-  41110 sudo unshare --pid --fork bash
-  41111 unshare --pid --fork bash
-  41112 bash
-  41119 sleep 100
-  41155 ps -o pid,cmd
-root@stantheman-Aspire-A515-56:/home/stantheman#
+root@stantheman-Aspire-A515-56:/home/stantheman# ps aux
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           1  0.0  0.0  12784  4224 pts/3    S    22:03   0:00 bash
+root          10  0.0  0.0  10920  1920 pts/3    S    22:04   0:00 sleep 100
+root          11  0.0  0.0  15312  3456 pts/3    R+   22:04   0:00 ps aux
 ```
 On retrouve bien notre sleep 100. En revanche, si on effectue la même commande depuis le deuxième namespace : 
 
 ```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# ps -o pid,cmd | grep sleep
-  40841 grep --color=auto sleep
+root@stantheman-Aspire-A515-56:/home/stantheman# ps aux 
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           1  0.0  0.0  12784  4352 pts/4    S    22:03   0:00 bash
+root           8  0.0  0.0  15312  3584 pts/4    R+   22:04   0:00 ps aux
 ```
 On ne le retrouve pas. Ce qui prouve que les processus créés dans le premier namespace sont isolés du deuxième, et inversement.
 
 En revanche, l'isolement n'est pas complet par rapport à la machine hôte, étant donné qu'elle peut voir les processus créés par les namespaces : 
 ```bash
 ➜  ~ ps aux | grep sleep
-root       40948  0.0  0.0  10920  1920 pts/3    S    21:49   0:00 sleep 100
-stanthe+   41009  0.0  0.0  11780  2560 pts/5    S+   21:50   0:00 grep --color=auto --exclude-dir=.bzr --exclude-dir=CVS --exclude-dir=.git --exclude-dir=.hg --exclude-dir=.svn --exclude-dir=.idea --exclude-dir=.tox --exclude-dir=.venv --exclude-dir=venv sleep 
+root       41855  0.0  0.0  10920  1920 pts/3    S    22:04   0:00 sleep 100
+stanthe+   41891  0.0  0.0  11780  2560 pts/5    S+   22:04   0:00 grep --color=auto --exclude-dir=.bzr --exclude-dir=CVS --exclude-dir=.git --exclude-dir=.hg --exclude-dir=.svn --exclude-dir=.idea --exclude-dir=.tox --exclude-dir=.venv --exclude-dir=venv sleep
 ```
 
-### User 
+### User
+créer un user sur l'hote  
+et ne pas copier le fichier de l'user pour le container
+
 Ce type d'isolation permet justement d'isoler les **identifiants d'utilisateur** et les **identifiants de groupe**. 
 
 On crée nos deux namespaces. On précise `--map-root-user` car pour créer des utilisateurs par la suite, on va avoir besoin des permissions root.
 ```bash
-sudo unshare --user --map-root-user --fork bash
+➜  ~ sudo unshare -fp -U --mount-proc /bin/bash
 ```
 ```bash
-sudo unshare --user --map-root-user --fork bash
+➜  ~ sudo unshare -fp -U --mount-proc /bin/bash
 ```
 
 Ensuite, on crée un premier utilisateu dans le premier namespace.
@@ -243,13 +246,15 @@ Ensuite, on crée un premier utilisateu dans le premier namespace.
 ```
 
 ### Time
-Ce type d'isolation est en lien avec la date, l'heure, l'uptime, qu'on peut les modifier sans que ça n'ait de répercussions sur le système hôte ou les autres namespaces.
+Ce type d'isolation est en lien avec la date, l'heure, l'uptime, qu'on peut modifier sans que ça n'ait de répercussions sur le système hôte ou les autres namespaces.
 
 
-On vérifie déjà l'uptime de la machine hôte : 
+
+On lance le namespace : 
 ```bash
-➜  ~ uptime -p
-up 5 hours, 16 minutes
+➜  ~ sudo unshare --time --mount /bin/bash
 ```
+
+date %Y%m%d -s "20231223"
 
 
