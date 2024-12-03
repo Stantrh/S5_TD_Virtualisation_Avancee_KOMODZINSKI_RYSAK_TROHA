@@ -231,13 +231,8 @@ créer un user sur l'hote
 et ne pas copier le fichier de l'user pour le container
 
 Ce type d'isolation permet justement d'isoler les **identifiants d'utilisateur** et les **identifiants de groupe**. 
-
-On crée nos deux namespaces. On précise `--map-root-user` car pour créer des utilisateurs par la suite, on va avoir besoin des permissions root.
 ```bash
-➜  ~ sudo unshare -fp -U --mount-proc /bin/bash
-```
-```bash
-➜  ~ sudo unshare -fp -U --mount-proc /bin/bash
+➜  ~ sudo unshare --user --mount-proc /bin/bash
 ```
 
 Ensuite, on crée un premier utilisateu dans le premier namespace.
@@ -246,15 +241,28 @@ Ensuite, on crée un premier utilisateu dans le premier namespace.
 ```
 
 ### Time
-Ce type d'isolation est en lien avec la date, l'heure, l'uptime, qu'on peut modifier sans que ça n'ait de répercussions sur le système hôte ou les autres namespaces.
+Ce type d'isolation est en lien avec la **date**, l'**heure**, l'**uptime**, qu'on peut modifier sans que ça n'ait de répercussions sur le système hôte ou les autres namespaces.
 
+Malheureusement avec ma machine ayant un **kernel 6.8.0-49-generic**, le temps est défini par **CLOCK_REALTIME**, dont le système n'autorise pas la modification directe. C'est à dire que même avec un namespace **time** la modification et portée de cette horloge reste globale.
+
+En revanche, sur un WSL, on peut modifier la date.
 
 
 On lance le namespace : 
 ```bash
-➜  ~ sudo unshare --time --mount /bin/bash
+➜  ~ sudo unshare --time /bin/bash
 ```
 
-date %Y%m%d -s "20231223"
+Ensuite, il suffit d'entrer cette commande :  
+```bash
+date %Y%m%d -s "20001010"
+```
+
+Si on appelle date à nouveau, on devrait être le 10 Octobre 2010 :  
+```bash
+
+```
+
+
 
 
