@@ -24,7 +24,7 @@ Les cgroups fonctionnent via une hiérarchie de répertoires dans /sys/fs/cgroup
 On peut noter qu'il existe deux types de cgroups, les v1 et les v2. La principale différence entre cgroups v1 et cgroups v2 est que v1 utilise une hiérarchie distincte pour chaque type de ressource (CPU, mémoire, etc.), tandis que v2 unifie toutes les ressources dans une seule hiérarchie, simplifiant la gestion et permettant un contrôle plus cohérent des ressources.
 
 
-## 1. À l'aide des cgroups
+## 1. Cgroups
 
 ### Lancer un processus donnant l'heure toutes les secondes
 
@@ -33,13 +33,13 @@ Dans le premier terminal nous entrons la commande :
 ```bash
 ➜ ~ while [ 1 ] ; do echo -en "$(date +%T)\r" ; sleep 1; done
 ```
-Cette commande va créer un processus qui va afficher l'heure toutes les secondes
+Cette commande va créer un processus qui va afficher l'heure toutes les secondes.
 
 ```bash
 16:03:00
 ```
 
-Dans un deuxième terminal nous alloons mettre en place un cgroup limitant la mémoire pouvant être utilise par un processus 
+Dans un deuxième terminal nous allons mettre en place un cgroup limitant la mémoire pouvant être utilise par un processus 
 
 ### Etape 1 Installer les outils nécessaires
 
@@ -94,24 +94,107 @@ Pour comprendre ce qu'il se passe nous pouvons surveiller la consommation de mé
 ➜ ~ cat /sys/fs/cgroup/memory/limited_memory/memory.usage_in_bytes
 104857600
 ```
-Comme nous pouvons le voir, une fois la mémoire totale qui lui a été alloué utilisé, la forkbomb ne peut créer de processus enfant car ils seront tuer par **l'OOM killer** garantissant ainsi que le pc ne crash pas
+Comme nous pouvons le voir, une fois la mémoire totale qui lui a été alloué utilisé, la forkbomb ne peut plus créer de processus enfant, car ceux-ci sont arrêtés par **l'OOM killer** garantissant ainsi que le pc ne crash pas.
 
-Si maintenant je décide d'augment la mémoire alloué à mon cgroup : 
+Si maintenant je décide d'augmenter la mémoire alloué à mon cgroup : 
 
 ```bash 
 ➜ ~ echo 200M | sudo tee /sys/fs/cgroup/memory/limited_memory/memory.limit_in_bytes
 ```
-Nous pourrons cosntater que la forkbomb va immédiatement s'emparer de toute la mémoire libre disponible
+Nous pourrons constater que la forkbomb va immédiatement s'emparer de toute la mémoire libre disponible.
 
 ```bash 
 ➜ ~ cat /sys/fs/cgroup/memory/limited_memory/memory.usage_in_bytes
 209715200
 ```
 
+### Conclusion
+
+Dans cette première partie, nous avons utilisé les **cgroups** pour limiter la mémoire accessible à un groupe de processus. Nous avons exécuté une **forkbomb** dans un cgroup configuré avec une limite mémoire, et observé que le système restait stable grâce à l'action de l'**OOM killer**. Cette expérience montre l'efficacité des cgroups pour gérer les ressources et protéger un système contre des processus malveillants ou mal configurés.
+
+
+## 2. Namespaces et Cgroups
+
+Les **namespaces** et **cgroups** sont des fonctionnalités puissantes qui permettent d'isoler et de limiter les processus, améliorant ainsi la sécurité et la gestion des ressources. Dans cette deuxième question, nous utilisons ces outils pour isoler un processus dans un environnement virtuel où il ne peut pas accéder aux ressources du système hôte, tout en limitant sa mémoire pour éviter qu'il ne fasse planter le système.
+
+*****
+
+### Objectif
+
+L'objectif est de créer un environnement isolé à l'aide des **namespaces** et de limiter la mémoire avec les cgroups. Nous exécuterons un script Bash dans cet environnement, qui tente d'accéder aux ressources système et finit par lancer une **fork bomb**. Seul le script Bash devrait planter, sans affecter l'hôte.
+
+*****
+
+### Étapes
+
+#### 1. Créer un cgroup pour limiter la mémoire
+
+Nous commençons par créer un cgroup pour le sous-système mémoire :
+
+```bash
+sudo cgcreate -g memory:/limited_memory
+```
+
+Ensuite, nous limitons la mémoire à **100 Mo** :
+
+```bash
+echo 100M | sudo tee /sys/fs/cgroup/memory/limited_memory/memory.limit_in_bytes
+```
+
+*****
+
+#### 2. Écrire le script Bash à exécuter dans l'environnement isolé
+
+Nous écrivons un script [isolate_script.sh](Ressources/isolate_script.sh) qui tente d’accéder aux ressources système et finit par lancer une fork bomb :
+
+```bash
+#!/bin/bash
+
+# Tentative d'accès aux ressources système
+echo "Tentative d'accès aux ressources du système hôte"
+cat /etc/passwd  # Accès à un fichier système
+
+# Lancer une fork bomb
+echo "Lancement de la fork bomb..."
+:(){ :|:& };:
+```
+
+*****
+
+#### 3. Créer un namespace isolé et exécuter le script
+
+Nous utilisons la commande ``unshare`` pour créer un nouveau namespace avec un PID isolé et un système de fichiers virtuel :
+
+```bash
+sudo unshare --pid --fork --mount-proc bash -c "
+    # Exécuter le script dans un cgroup limité
+    sudo cgexec -g memory:limited_memory ./isolate_script.sh
+"
+```
+
+Explications :
+
+- ``--pid`` : Crée un namespace de processus isolé avec un nouvel espace PID.
+
+- ``--fork`` : Lance le processus isolé dans une nouvelle instance de namespace.
+
+- ``--mount-proc`` : Monte un nouveau système de fichiers /proc isolé pour le namespace.
+
+*****
+
+### Résultats
+
+Lors de l’exécution du script, la tentative d’accès au fichier ``/etc/passwd`` dans le namespace échoue, car l'environnement est isolé.
+
+Une fois la fork bomb lancée, elle consomme toute la mémoire allouée (100 Mo) dans le cgroup, et le processus est arrêté par l'**OOM killer**. Le système hôte reste stable, seul le script plante.
+
+```bash
+➜ ~ cat /sys/fs/cgroup/memory/limited_memory/memory.usage_in_bytes
+104857600
+```
+
+*****
 
 ### Conclusion
 
-Dans cette première partie, nous avons pu mettre en place un cgroup qui limitait la mémoire totale pouvant être utilisé.
-Nous avons ensuite executé une forkbomb sur ce cgroup, et avons pu constater que le cgroup empêchait la forkbomb d'utiliser plus de mémoire qu'il ne lui était alloué, empêchant ainsi la forkbomb de faire crasher le système
-
-
+Grâce à l’utilisation combinée des namespaces pour isoler les ressources et des cgroups pour limiter la mémoire, nous avons exécuté un script potentiellement dangereux dans un environnement sécurisé. Cela démontre l’efficacité de ces outils pour protéger un système contre des processus malveillants ou mal configurés.
