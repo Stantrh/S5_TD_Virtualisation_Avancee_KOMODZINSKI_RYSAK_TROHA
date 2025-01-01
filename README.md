@@ -1,268 +1,126 @@
 # TD Virtualisation Avancee
 
-## TD 2 : Namespaces
+## TD 4 : Docker
 
-Les namespaces sont très utiles pour isoler des **ressources** dans un "conteneur" (en réalité, un conteneur est un ensemble de namespaces). Ces **ressources** peuvent être, par exemple : 
-- Des utilisateurs.
-- Des réseaux.
-- Des processus. 
-- Des disques.
+> Note : L'utilisation d'un mot de passe pour l'utilisateur root a été faite en première étape n'ayant pas réussi à se connecter sans.
 
-> <u>Exemple</u> : *Par défaut, tous les processus du système voient le même hostname. Par exemple, si un processus modifie l'hostname, ce dernier sera modifié pour tous les processus. Pour ce cas, il faut créer un **namespace** de type **UTS** (Unix Time Sharing) pour mettre des processus à l'intérieur, et modifier l'hostname uniquement pour ceux-ci*.
-
-On peut donc définir un namespace par un ensemble de processus ayant une **vision commune** d'une ressource partagée.
-
-
-
-### Mount
-Avec unshare, Mount permet à chaque processus d'avoir son propre système de fichiers (pour gérer les points de montage, disques, etc.). 
-
-Pour bien comprendre ce que ça fait, il faut savoir que **mount** attache un système de fichiers à l'arborescence du système. C'est le mécanisme qui permet à l'OS de voir et accéder à des fichiers, des disques ou des partitions.
-Si on mount un dossier avec unshare, le/les processus d'unshare vont pouvoir accéder au **montage de ce dossier**, mais pas les processus en dehors. Le dossier et ses fichiers eux, restent visibles par tous les processus.
-
-On crée deux namespaces **mount**.
-
+Pour ce TD, nous utiliserons la version CLI de MariaDB. L'installation est très simple :  
 ```bash
-➜  ~ sudo unshare --mount --fork bash
+sudo apt install mariadb-client
+```
+On vérifie l'installation et la version :  
+```bash
+➜  ~ mariadb --version
+mariadb  Ver 15.1 Distrib 10.6.18-MariaDB, for debian-linux-gnu (x86_64) using  EditLine wrapper
 ```
 
+Afin de pouvoir lancer un container MariaDB sur notre machine, on doit d'abord récupérer son image sur [docker hub](https://hub.docker.com/_/mariadb).
+
 ```bash
-➜  ~ sudo unshare --mount --fork bash
+➜  ~ docker pull mariadb
 ```
 
-Dans le premier namespace qu'on a créé, on crée d'abord un dossier et un fichier à l'intérieur. 
+Ensuite, l'image est ajoutée dans notre librairie d'images, on peut le voir en listant nos images : 
 ```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# mkdir /tmp/mount_test
-root@stantheman-Aspire-A515-56:/home/stantheman# echo "coucou" > /tmp/mount_test/hey.txt
-```
-
-Ce dossier (ainsi que son contenu) est visible à la fois par les deux namespaces, et par la machine hôte.
-```bash
-➜  ~ ls -l /tmp/mount_test
-total 4
--rw-r--r-- 1 root root 7 nov.  19 19:21 hey.txt
-```
-
-```bash
-// shell de l'autre namespace sur lequel on a encore rien fait
-root@stantheman-Aspire-A515-56:/home/stantheman# ls -l /tmp/mount_test/
-total 4
--rw-r--r-- 1 root root 7 nov.  19 19:21 hey.txt
-```
-> Comme on doit lancer les namespaces en super utilisateur, le créateur et propriétaire est *root*.
-
-<br>
-
-Maintenant, dans le premier namespace, on monte le dossier `/home` dans `/tmp/mount_test`. Cela redirige (référence partagée, pas une copie) tout le contenu de `/home` vers `/tmp/mount_test`, mais uniquement pour ce namespace :
-```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# mount --bind /home /tmp/mount_test
-
-root@stantheman-Aspire-A515-56:/home/stantheman# mount | grep /tmp/mount_test
-/dev/nvme0n1p2 on /tmp/mount_test type ext4 (rw,relatime,errors=remount-ro)
-```
-On peut donc voir que le contenu de `/home` (`stantheman/`) est bien monté dans `/tmp/mount_test` pour le premier namespace, mais pas pour les autres.
-> La commande mount a écrasé le contenu de `/tmp/mount_test`, c'est pour cela que hey.txt a disparu.
-
-En revanche, si on regarde depuis l'autre namespace ou la machine hôte, on ne voit pas le **mount** ni le contenu qui a été mount (le `/home`). Ce qui prouve qu'il est bien isolé :
-```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# ls -l /tmp/mount_test/
-total 4
--rw-r--r-- 1 root root 7 nov.  19 19:21 hey.txt
-```
-
-```bash
-➜  ~ mount | grep /tmp/mount_test
-➜  ~ ls -l /tmp/mount_test 
-total 4
--rw-r--r-- 1 root root 7 nov.  19 19:21 hey.txt
-```
-
-Maintenant, si on modifie le /home, ce sera directement répercuté dans le point de montage `/tmp/mount_test` du namespace à l'origine du montage : 
-
-```bash
-➜  /home sudo mkdir preuve_montage
-[sudo] Mot de passe de stantheman : 
-➜  /home ls
-preuve_montage  stantheman
-```
-
-Shell du premier namespace : 
-```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# ls /tmp/mount_test/
-preuve_montage  stantheman
-```
-
-Shell du deuxieme namespace :
-```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# ls /tmp/mount_test/
-hey.txt
+➜  ~ docker images        
+REPOSITORY            TAG       IMAGE ID       CREATED       SIZE
+mariadb               latest    a9547599cd87   11 days ago   550MB
 ```
 
 
+Afin de pouvoir accéder au service MariaDB lancé sur le container, il va nous falloir mapper le port du container à celui de notre machine. C'est à dire que docker crée son propre réseau pour ses containers, ils sont donc isolés du du notre (machine hôte). Par défaut, le port de mariadb est ``3306``, on va donc mapper le port 3306 du conteneur au port 3306 de notre machine.
 
-### UTS (Unix Time Share)
-Pour créer un premier namespace UTS, on utilise la commande 
-```bash
-➜  ~ sudo unshare --uts --fork bash
-// On est donc dans le nouveau namespace qu'on vient de créer, avec un shell
-root@stantheman-Aspire-A515-56:/home/stantheman#
+
+Mais tout d'abord, on va créer un fichier **.env** qui comportera le mot de passe root de MariaDB.
+
+```ini
+MARIADB_ROOT_PASSWORD=PJB4&fn*uVl3hjKx
 ```
 
-Ensuite, dans le shell de ce nouveau namespace, on modifie le *hostname*.
 ```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# hostname virtualisation
+➜  ~ docker run -d --name mariadb-td4 --env-file .env -p 3306:3306 mariadb
+```
+- On spécifie ``-d`` pour que le conteneur tourne en arrière plan.
+- ``--name`` pour définir le nom du conteneur.
+- ``--env-file`` pour spécifier le fichier contenant les variables d'environnement. *Dans notre cas on définit le mot de passe root du service mariadb pour pouvoir s'y connecter depuis notre hôte.*
+- `-p` pour indiquer : 
+    - *A gauche* : Le port de la machine hôte depuis lequel on peut accéder au service.
+    - *A droite* : Le port du conteneur depuis lequel le service est accessible.
+    - Cette option permet donc de mapper un port de la machine hôte à un port du conteneur pour pouvoir accéder au service conteneurisé.
+- ``mariadb`` : le nom de l'image dont on conteneurise une instance.
+
+Maintenant, pour accéder au service depuis notre machine hôte, on sait qu'on peut utiliser le port 3306.
+
+On utilise donc le client ``mariadb``  pour accéder à ce service, en se rappelant du mot de passe qu'on a créé dans le fichier d'environnement précédemment.
+```bash
+mariadb -h 127.0.0.1 -P 3306 -u root -p
 ```
 
-On crée maintenant un deuxième namespace UTS en modifiant aussi l'hostname : 
-```bash
-➜  ~ sudo unshare --uts --fork bash
-root@stantheman-Aspire-A515-56:/home/stantheman# hostname programmation
-```
-On a donc créé deux namespaces différents, isolés l'un de l'autre. On peut maintenant vérifier que les *hostname* sont différents. 
+On est bien connecté au service, maintenant on peut créer notre base de données puis notre table.
+```sql
+MariaDB [(none)]> CREATE DATABASE TD4;
+Query OK, 1 row affected (0,002 sec)
 
-![alt text](ressources/hostname.png)
-
-On peut aussi vérifier que l'hostname de la machine hôte n'a été modifié par aucun de ces deux namespaces.
-
-```bash
-➜  ~ hostname
-stantheman-Aspire-A515-56
-```
-
-### IPC (Inter-Process Communication)
-IPC correspond à la communication inter-processus. Le but de créer des namespaces permet d'isoler les communications entre les différents processus. Cela veut dire que chaque processus peut avoir son propre espace de communication (mémoire partagée, sémaphores, etc.).
-
-Comme pour chaque type d'isolation, on crée deux namespaces IPC : 
-```bash
-sudo unshare --ipc --fork bash
-```
-```bash
-sudo unshare --ipc --fork bash
-```
-
-Pour cet exemple, on va utiliser les **segments de mémoire partagée** qui permet à plusieurs processus d'accéder à une zone mémoire commune. On va donc vérifier que si on crée un segment mémoire dans le premier namespace, il soit invisible pour le deuxième.
-
-Dans le premier namespace, on crée plusieurs segments de mémoire partagée : 
-```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# ipcmk -M 128
-identifiant de mémoire partagée : 0
-root@stantheman-Aspire-A515-56:/home/stantheman# ipcmk -M 128
-identifiant de mémoire partagée : 1
-root@stantheman-Aspire-A515-56:/home/stantheman# ipcmk -M 128
-identifiant de mémoire partagée : 2
-```
-On peut différencier ces segments avec leur identifiant. On peut les lister avec : 
-```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# ipcs -m
-
------- Segment de mémoire partagée --------
-clef       shmid      propriétaire perms      octets     nattch     états      
-0x80dca399 0          root       644        128        0                       
-0xa32b5316 1          root       644        128        0                       
-0x06ef129e 2          root       644        128        0  
-```
-
-Maintenant, si on essaye de les lister depuis le deuxième namespace, on ne devrait obtenir aucun résultat étant donné qu'il est isolé de l'autre.
-```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# ipcs -m
-
------- Segment de mémoire partagée --------
-clef       shmid      propriétaire perms      octets     nattch     états      
-```
-Et en effet, aucun résultat. Les segments de mémoire créés par le premier namespace sont bien isolés, à la fois de l'autre namespace, mais aussi de la machine hôte.
-On peut le vérifier en listant depuis la machine hôte : 
-```bash
-➜  ~ ipcs -m
-
------- Segment de mémoire partagée --------
-clef       shmid      propriétaire perms      octets     nattch     états      
-0xca02810d 2          stantheman 600        65536      1                       
-0x51029392 4          stantheman 600        16         1                       
-0x00000000 9          stantheman 606        11704320   2          dest         
-0x00000000 10         stantheman 606        11704320   2          dest         
-0x00000000 14         stantheman 600        524288     2          dest 
-```
-Un segment de mémoire partagée a également l'id 2. Mais c'est parce qu'il est le deuxième du namespace de la machine hôte. On peut voir que ces segments sont différents de ceux créés sur le premier namespace grâce aux clés héxadécimales qui représentes des valeurs différentes.
+MariaDB [(none)]> USE TD4;
+Database changed
 
 
-### PID
-On crée déjà nos deux namespace : 
-```bash
-sudo unshare --fork --pid --mount-proc bash
-```
-```bash
-sudo unshare --fork --pid --mount-proc bash
-```
-> On utilise l'option `--mount-proc ` pour pouvoir monter sur le namespace le dossier /proc responsable des processus. Si on ne le fait pas, `grep aux` ou toute autre commande relatée aux processus sur le namespace lirait les informations depuis le `/proc` de la machine hôte.
-
-Dans le premier namespace, on va créer un deuxième processus avec `sleep`.
-
-```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# sleep 100 &
-```
-
-Ensuite, on récupère l'id du processus depuis le premier namespace toujours : 
-```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# ps aux
-USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
-root           1  0.0  0.0  12784  4224 pts/3    S    22:03   0:00 bash
-root          10  0.0  0.0  10920  1920 pts/3    S    22:04   0:00 sleep 100
-root          11  0.0  0.0  15312  3456 pts/3    R+   22:04   0:00 ps aux
-```
-On retrouve bien notre sleep 100. En revanche, si on effectue la même commande depuis le deuxième namespace : 
-
-```bash
-root@stantheman-Aspire-A515-56:/home/stantheman# ps aux 
-USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
-root           1  0.0  0.0  12784  4352 pts/4    S    22:03   0:00 bash
-root           8  0.0  0.0  15312  3584 pts/4    R+   22:04   0:00 ps aux
-```
-On ne le retrouve pas. Ce qui prouve que les processus créés dans le premier namespace sont isolés du deuxième, et inversement.
-
-En revanche, l'isolement n'est pas complet par rapport à la machine hôte, étant donné qu'elle peut voir les processus créés par les namespaces : 
-```bash
-➜  ~ ps aux | grep sleep
-root       41855  0.0  0.0  10920  1920 pts/3    S    22:04   0:00 sleep 100
-stanthe+   41891  0.0  0.0  11780  2560 pts/5    S+   22:04   0:00 grep --color=auto --exclude-dir=.bzr --exclude-dir=CVS --exclude-dir=.git --exclude-dir=.hg --exclude-dir=.svn --exclude-dir=.idea --exclude-dir=.tox --exclude-dir=.venv --exclude-dir=venv sleep
-```
-
-### User
-créer un user sur l'hote  
-et ne pas copier le fichier de l'user pour le container
-
-Ce type d'isolation permet justement d'isoler les **identifiants d'utilisateur** et les **identifiants de groupe**. 
-```bash
-➜  ~ sudo unshare --user --mount-proc /bin/bash
-```
-
-Ensuite, on crée un premier utilisateu dans le premier namespace.
-```bash
-
-```
-
-### Time
-Ce type d'isolation est en lien avec la **date**, l'**heure**, l'**uptime**, qu'on peut modifier sans que ça n'ait de répercussions sur le système hôte ou les autres namespaces.
-
-Malheureusement avec ma machine ayant un **kernel 6.8.0-49-generic**, le temps est défini par **CLOCK_REALTIME**, dont le système n'autorise pas la modification directe. C'est à dire que même avec un namespace **time** la modification et portée de cette horloge reste globale.
-
-En revanche, sur un WSL, on peut modifier la date.
-
-
-On lance le namespace : 
-```bash
-➜  ~ sudo unshare --time /bin/bash
-```
-
-Ensuite, il suffit d'entrer cette commande :  
-```bash
-date %Y%m%d -s "20001010"
-```
-
-Si on appelle date à nouveau, on devrait être le 10 Octobre 2010 :  
-```bash
-
+MariaDB [TD4]> create table projects(
+    -> project_id int auto_increment,
+    -> project_name varchar(255) not null,
+    -> begin_date date,
+    -> end_date date,
+    -> cost decimal(15,2) not null,
+    -> created_at timestamp default current_timestamp,
+    -> primary key(project_id)
+    -> );
+Query OK, 0 rows affected (0,025 sec)
 ```
 
 
+##### Question 4)
+Maintenant, on liste les contenurs : 
+```bash
+➜  ~ docker ps
+CONTAINER ID   IMAGE     COMMAND                  CREATED          STATUS          PORTS                    NAMES
+f5ef08af9e5a   mariadb   "docker-entrypoint.s…"   10 minutes ago   Up 10 minutes   0.0.0.0:3306->3306/tcp   mariadb-td4
+```
+
+Puis on stop et on arrête le conteneur : 
+```bash
+➜  ~ docker stop mariadb-td4
+mariadb-td4
+
+➜  ~ docker rm mariadb-td4
+mariadb-td4
+```
+
+Ensuite, si on refait les manipulations précédentes pour relancer le service et s'y connecter avec le client mariadb, notre table n'existe plus, ainsi que la base de données qu'on avait créée : 
+```
+MariaDB [(none)]> USE TD4
+ERROR 1049 (42000): Unknown database 'TD4'
+```
+
+
+Pour pouvoir conserver notre table ainsi que notre base de données même après plusieurs suppression de conteneur, il faut mapper un volume.
+
+> Un volume dans Docker est un mécanisme de stockage persistant qui permet de sauvegarder des données en dehors du cycle de vie d'un conteneur. Contrairement au système de fichiers interne d'un conteneur, les volumes ne sont pas supprimés lorsque le conteneur est arrêté ou supprimé.
+
+Pour ce faire, on crée déjà un dossier en local ``data`` : 
+```bash
+➜  TD_Virtualisation_Avancee git:(TD4) ✗ mkdir data
+```
+C'est ce dossier que l'on va monter. Ensuite, il suffit d'utiliser l'option ``-v`` pour indiquer le dossier qu'on décide de monter, et l'endroit où il doit être monté dans le conteneur.
+
+```bash
+docker run -d -v ./data:/var/lib/mysql --name mariadb-td4 --env-file .env -p 3306:3306 mariadb
+```
+
+En reproduisant les étapes précédentes, en créant la base de données ainsi que la table, on remarque qu'après plusieurs suppressions et lancements d'un conteneur mariadb, les informations ne disparaissent pas.
+
+![alt text](ressources/result.png)
+
+C'est justement parce que le dossier ``data/`` est partagé (grâce au mapping) entre notre machine hôte et les conteneurs qu'on instancie.  
+![alt text](ressources/dirlist.png)
 
 
