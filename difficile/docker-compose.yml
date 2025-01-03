@@ -1,0 +1,30 @@
+services: # on définit donc nos 3 services différents
+  backend:  # Définition du service backend
+    build:  # Pour construire l'image à partir du Dockerfile qui contient les installations des packages et le lancement du point d'entrée du serveur.
+      context: ./backend  # Dossier contenant le Dockerfile.
+    ports:
+      - "3000:3000"  # Mapping pour qu'on puisse accéder au backend sur notre hôte sur localhost:3000
+    depends_on:
+      - database  # On utilise depends pour s'assurer que database soit démarré pour que le backend puisse également démarrer à son tour.
+    volumes:
+      - ./backend:/app  # Pour monter le code source dans le conteneur.
+
+  frontend:  # Définition du service frontend
+    build:  # Pour construire l'image à partir du Dockerfile qui contient les installations des packages et le lancement du point d'entrée du frontend.
+      context: ./frontend/front-td5  # Dossier contenant le Dockerfile.
+    ports:
+      - "5173:5173"  # Le point d'entrée de l'app web pour notre hôte est le frontend, on le rend donc disponible au port 5173 (port de base de Vue.js)
+    depends_on:
+      - backend  # Comme ci-dessus, là il faut que le backend soit prêt pour que le frontend soit lancé.
+    volumes:
+      - ./frontend/front-td5:/app  # On monte également le code source et les configurations, mais l'installation des dépendances s'installent grâce au dockerfile
+
+  database:  # Définition du service MongoDB
+    image: mongo:latest  # on utilise donc l'image mongodb
+    ports:
+      - "27017:27017"  # On fait le mapping entre note hôte et le conteneur pour pouvoir accéder au service
+    volumes:
+      - ./mongo-data:/data/db  # Pour garder les mêmes données peu importe les instances de cette image
+    environment:  # et on définit nos logins pour se connecter à la bdd
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=secret
