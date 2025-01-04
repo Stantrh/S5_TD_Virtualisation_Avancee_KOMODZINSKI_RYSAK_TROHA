@@ -112,7 +112,7 @@ Nous pourrons constater que la forkbomb va immédiatement s'emparer de toute la 
 
 ### Objectif
 
-L'objectif est de créer un environnement isolé à l'aide des **namespaces** et de limiter la mémoire avec les cgroups. Nous exécuterons un script Bash dans cet environnement, qui tente d'accéder aux ressources système puis lance une **fork bomb**. Seul le script Bash devrait planter, sans affecter l'hôte.
+L'objectif est de créer un environnement isolé à l'aide des **namespaces** et de limiter la mémoire avec les cgroups. Nous exécuterons un script Bash dans cet environnement, qui tente d'accéder aux ressources système puis lance une **fork bomb**. Seul le script Bash devrait planter, sans affecter le système.
 
 *****
 
