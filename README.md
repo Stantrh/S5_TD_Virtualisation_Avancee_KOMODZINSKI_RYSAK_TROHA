@@ -108,20 +108,11 @@ Nous pourrons constater que la forkbomb va immédiatement s'emparer de toute la 
 209715200
 ```
 
-### Conclusion
-
-Dans cette première partie, nous avons utilisé les **cgroups** pour limiter la mémoire accessible à un groupe de processus. Nous avons exécuté une **forkbomb** dans un cgroup configuré avec une limite mémoire, et observé que le système restait stable grâce à l'action de l'**OOM killer**. Cette expérience montre l'efficacité des cgroups pour gérer les ressources et protéger un système contre des processus malveillants ou mal configurés.
-
-
 ## 2. Namespaces et Cgroups
-
-Les **namespaces** et **cgroups** sont des fonctionnalités puissantes qui permettent d'isoler et de limiter les processus, améliorant ainsi la sécurité et la gestion des ressources. Dans cette deuxième question, nous utilisons ces outils pour isoler un processus dans un environnement virtuel où il ne peut pas accéder aux ressources du système hôte, tout en limitant sa mémoire pour éviter qu'il ne fasse planter le système.
-
-*****
 
 ### Objectif
 
-L'objectif est de créer un environnement isolé à l'aide des **namespaces** et de limiter la mémoire avec les cgroups. Nous exécuterons un script Bash dans cet environnement, qui tente d'accéder aux ressources système et finit par lancer une **fork bomb**. Seul le script Bash devrait planter, sans affecter l'hôte.
+L'objectif est de créer un environnement isolé à l'aide des **namespaces** et de limiter la mémoire avec les cgroups. Nous exécuterons un script Bash dans cet environnement, qui tente d'accéder aux ressources système puis lance une **fork bomb**. Seul le script Bash devrait planter, sans affecter l'hôte.
 
 *****
 
@@ -129,7 +120,7 @@ L'objectif est de créer un environnement isolé à l'aide des **namespaces** et
 
 #### 1. Créer un cgroup pour limiter la mémoire
 
-Nous commençons par créer un cgroup pour le sous-système mémoire :
+Nous commençons par créer un cgroup dans le contrôleur de mémoire :
 
 ```bash
 sudo cgcreate -g memory:/limited_memory
@@ -145,16 +136,14 @@ echo 100M | sudo tee /sys/fs/cgroup/memory/limited_memory/memory.limit_in_bytes
 
 #### 2. Écrire le script Bash à exécuter dans l'environnement isolé
 
-Nous écrivons un script [isolate_script.sh](Ressources/isolate_script.sh) qui tente d’accéder aux ressources système et finit par lancer une fork bomb :
+Nous écrivons un script [isolate_script.sh](Ressources/isolate_script.sh) qui tente d’accéder aux ressources du système puis lance une fork bomb :
 
 ```bash
 #!/bin/bash
 
-# Tentative d'accès aux ressources système
 echo "Tentative d'accès aux ressources du système hôte"
-cat /etc/passwd  # Accès à un fichier système
+cat /etc/passwd
 
-# Lancer une fork bomb
 echo "Lancement de la fork bomb..."
 :(){ :|:& };:
 ```
@@ -163,22 +152,21 @@ echo "Lancement de la fork bomb..."
 
 #### 3. Créer un namespace isolé et exécuter le script
 
-Nous utilisons la commande ``unshare`` pour créer un nouveau namespace avec un PID isolé et un système de fichiers virtuel :
+Nous utilisons la commande ``unshare`` pour créer un nouveau namespace :
 
 ```bash
 sudo unshare --pid --fork --mount-proc bash -c "
-    # Exécuter le script dans un cgroup limité
     sudo cgexec -g memory:limited_memory ./isolate_script.sh
 "
 ```
 
-Explications :
+- ``--pid`` : Crée un nouvel espace pour les PID.
 
-- ``--pid`` : Crée un namespace de processus isolé avec un nouvel espace PID.
+- ``--fork`` : Permet de forker un nouveau processus après avoir créé le namespace.
 
-- ``--fork`` : Lance le processus isolé dans une nouvelle instance de namespace.
+- ``--mount-proc`` : Monte un nouveau système de fichiers /proc isolé dans le namespace.
 
-- ``--mount-proc`` : Monte un nouveau système de fichiers /proc isolé pour le namespace.
+Puis on exécute le script dans le cgroup.
 
 *****
 
@@ -186,15 +174,9 @@ Explications :
 
 Lors de l’exécution du script, la tentative d’accès au fichier ``/etc/passwd`` dans le namespace échoue, car l'environnement est isolé.
 
-Une fois la fork bomb lancée, elle consomme toute la mémoire allouée (100 Mo) dans le cgroup, et le processus est arrêté par l'**OOM killer**. Le système hôte reste stable, seul le script plante.
+Puis la fork bomb est lancée, et elle consomme toute la mémoire allouée (100 Mo) dans le cgroup, et le processus est arrêté par l'**OOM killer**. Ainsi, seul le script plante.
 
 ```bash
 ➜ ~ cat /sys/fs/cgroup/memory/limited_memory/memory.usage_in_bytes
 104857600
 ```
-
-*****
-
-### Conclusion
-
-Grâce à l’utilisation combinée des namespaces pour isoler les ressources et des cgroups pour limiter la mémoire, nous avons exécuté un script potentiellement dangereux dans un environnement sécurisé. Cela démontre l’efficacité de ces outils pour protéger un système contre des processus malveillants ou mal configurés.
