@@ -227,18 +227,83 @@ stanthe+   41891  0.0  0.0  11780  2560 pts/5    S+   22:04   0:00 grep --color=
 ```
 
 ### User
-créer un user sur l'hote  
-et ne pas copier le fichier de l'user pour le container
 
-Ce type d'isolation permet justement d'isoler les **identifiants d'utilisateur** et les **identifiants de groupe**. 
+Le User namespace permet aux utilisateurs et processus dans un environnement d’avoir des permissions locales sans impact global. Par exemple, un utilisateur root dans un conteneur n’a pas de privilèges sur le système principal.
+Cela permet de renforcer la sécurité en permettant un accès administrateur dans le conteneur sans compromettre la sécurité du système principal.
+
+
+Pour lancer un namespace on va utiliser cette commande
+
 ```bash
-➜  ~ sudo unshare --user --mount-proc /bin/bash
+➜  ~ unshare --user --map-root-user --mount
+```
+Cette commande créer un user namespace et remappe l'utilisateur actuel comme root dans ce namespace
+
+On peut verifier cela en lancer la commande suivante
+```bash
+➜  ~ id
 ```
 
-Ensuite, on crée un premier utilisateu dans le premier namespace.
-```bash
+on obtient
 
+```bash
+uid=0(root) gid=0(root) groups=0(root),65534(nogroup)
 ```
+Cela montre que nous somme bien l'utilisateur root dans le namespace
+
+Cependant nous pouvons aussi vérifier notre UID/GID sur l’hôte depuis le namespace 
+
+```bash
+➜  ~ cat /proc/self/uid_map
+```
+Et nous obtenons
+
+```bash
+         0       1000          1
+```
+Cela signifie que l'utilisateur 1000 (notre utilisateur actuel sur l’hôte) est remappé comme utilisateur 0 (root) dans le namespace.
+
+
+Maintenant nous pouvons tester l'isolation du namespace et vérifier que nous disposons bien des permissions root dans le namespace mais pas en dehors
+
+Pour cela nous allons lancer la commande suivante
+
+```bash
+➜  ~ mount -t tmpfs tmpfs /mnt
+```
+
+Si j'avais lancé cette commande en dehors du namespace avec le même utilisateur que j'avais créer le namespace avec, j'aurais obtenu
+
+```bash 
+mount: /mnt: must be superuser to use mount.
+```
+En dehors du namespace il me faut bien les permissions pour pouvoir créer le mount, cependant si je le fais dans le namespace, puisque je dispose des permissions superuser cela me le créer
+
+on peut vérifier que cela a bien marché en lançant
+
+```bash
+➜  ~ mount | grep /mnt
+```
+et à la dernière ligne cela nous affiche 
+
+```bash
+tmpfs on /mnt type tmpfs (rw,relatime,uid=1000,gid=1000)
+```
+Autrement dit la commande que nous avons lancé a bien fonctionné
+
+Si cela marche dans le namespace et pas en dehors cela s'explique par le fait que de lancer un namespace user comme nous l'avons fait donne les permissions root **A l'intérieur de namespace**
+Cependant si j'essayait d'agir en dehors du namespace comme supprimer le répertoire /etc/
+
+```bash
+➜  ~ rmdir /ect/
+```
+
+J'obtiendrai le résultat suivant
+
+```bash
+rmdir: failed to remove '/etc/': Permission denied
+```
+On a donc prouvé que à l'intérieur de namespace je suis bien utilisateur root et dispose donc de tous les privilèges qui vont avec, cepandant, si j'essaie d'agir en dehors du namespace je ne disposerai pas des permissions sudo
 
 ### Time
 Ce type d'isolation est en lien avec la **date**, l'**heure**, l'**uptime**, qu'on peut modifier sans que ça n'ait de répercussions sur le système hôte ou les autres namespaces.
@@ -255,14 +320,20 @@ On lance le namespace :
 
 Ensuite, il suffit d'entrer cette commande :  
 ```bash
-date %Y%m%d -s "20001010"
+date -s "2000-10-10"
 ```
+Qui a pour but de modifier la date de notre système sur le 10 octobre 2010
 
-Si on appelle date à nouveau, on devrait être le 10 Octobre 2010 :  
+Si on appelle date à nouveau, on peut voir qu'on est le 10 octobre 2010 :  
 ```bash
-
+Tue Oct 10 00:00:02 CEST 2000
 ```
 
+Ensuite on va vérifier en dehors du namespace avec la commande date que la date est bien toujours celle d'aujourd'hui 
 
+```bash 
+Sat Jan  4 11:31:30 CET 2025
+```
+On obtient bien la date d'aujourd'hui ce qui veut dire que notre namespace a bien isolé l'opération de changement de date
 
 
