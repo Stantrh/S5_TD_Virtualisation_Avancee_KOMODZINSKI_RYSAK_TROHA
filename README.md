@@ -85,7 +85,7 @@ On crée un dossier [frontend/](difficile/frontend/) pour y installer [Vue.js](h
 ```bash
 npx create-vue@latest
 ```
-Ensuite, on navigue dans le projet créé, dans [front-td5](difficile/frontend/vue-project/) pour installer les dépendances nécessaires.
+Ensuite, on navigue dans le projet créé, dans [front-td5](difficile/frontend/front-td5/) pour installer les dépendances nécessaires.
 ```bash
 ➜  front-td5 git:(TD5) ✗ npm install
 ```
