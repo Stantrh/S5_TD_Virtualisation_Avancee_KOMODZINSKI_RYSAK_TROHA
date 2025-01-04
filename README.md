@@ -271,13 +271,18 @@ Pour cela nous allons lancer la commande suivante
 ```bash
 ➜  ~ mount -t tmpfs tmpfs /mnt
 ```
+Cette commande va monter un système de fichiers temporaire en mémoire
+
+La commande **mount** va entre autre modifier la table des points de montage du noyau. Il s'agit d'une ressource critique du systeme.
 
 Si j'avais lancé cette commande en dehors du namespace avec le même utilisateur que j'avais créer le namespace avec, j'aurais obtenu
 
 ```bash 
 mount: /mnt: must be superuser to use mount.
 ```
-En dehors du namespace il me faut bien les permissions pour pouvoir créer le mount, cependant si je le fais dans le namespace, puisque je dispose des permissions superuser cela me le créer
+En dehors du namespace il me faut bien les permissions pour pouvoir créer le mount, Cela s'explique par le fait que puisque qu'on touche à une ressource critique du système, il est évident qu'il faut une autorisation pour le faire, sinon un utilisateur malveillant pourrait par exemple monter un système de fichiers contenant des binaires malveillants. Il faut donc pouvoir protéger les ressources critiques du système.
+
+Cependant si je le fais dans le namespace, puisque je dispose des permissions superuser cela va me le créer
 
 on peut vérifier que cela a bien marché en lançant
 
@@ -291,8 +296,8 @@ tmpfs on /mnt type tmpfs (rw,relatime,uid=1000,gid=1000)
 ```
 Autrement dit la commande que nous avons lancé a bien fonctionné
 
-Si cela marche dans le namespace et pas en dehors cela s'explique par le fait que de lancer un namespace user comme nous l'avons fait donne les permissions root **A l'intérieur de namespace**
-Cependant si j'essayait d'agir en dehors du namespace comme supprimer le répertoire /etc/
+Si cela marche dans le namespace et pas en dehors cela s'explique par le fait que de lancer un namespace user comme nous l'avons fait donne les permissions root **A l'intérieur de namespace** et le namespace n'affecte pas le systeme hote, ce qui veut dire que les resources critique du systeme hôtes sont protéger et ne peuvent être acceder par le namespace.
+En conséquence si j'essayait d'agir en dehors du namespace comme supprimer le répertoire /etc/
 
 ```bash
 ➜  ~ rmdir /ect/
