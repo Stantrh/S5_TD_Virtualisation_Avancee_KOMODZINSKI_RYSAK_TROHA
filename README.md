@@ -24,7 +24,7 @@ Les cgroups fonctionnent via une hiérarchie de répertoires dans /sys/fs/cgroup
 On peut noter qu'il existe deux types de cgroups, les v1 et les v2. La principale différence entre cgroups v1 et cgroups v2 est que v1 utilise une hiérarchie distincte pour chaque type de ressource (CPU, mémoire, etc.), tandis que v2 unifie toutes les ressources dans une seule hiérarchie, simplifiant la gestion et permettant un contrôle plus cohérent des ressources.
 
 
-## 1. Cgroups
+## 1. À l'aide des cgroups
 
 ### Lancer un processus donnant l'heure toutes les secondes
 
@@ -33,13 +33,13 @@ Dans le premier terminal nous entrons la commande :
 ```bash
 ➜ ~ while [ 1 ] ; do echo -en "$(date +%T)\r" ; sleep 1; done
 ```
-Cette commande va créer un processus qui va afficher l'heure toutes les secondes.
+Cette commande va créer un processus qui va afficher l'heure toutes les secondes
 
 ```bash
 16:03:00
 ```
 
-Dans un deuxième terminal nous allons mettre en place un cgroup limitant la mémoire pouvant être utilise par un processus 
+Dans un deuxième terminal nous alloons mettre en place un cgroup limitant la mémoire pouvant être utilise par un processus 
 
 ### Etape 1 Installer les outils nécessaires
 
@@ -77,6 +77,13 @@ Grâce à la commande cgexec nous allons lancer une forkbomb dans le cgroup que 
 ```bash 
 ➜ ~ sudo cgexec -g memory:limited_memory bash -c ':(){ :|:& };:'
 ```
+* **cgexec** nous permet d'exécuter un script ou programme dans un cgroup donnée, en l'occurence notre cgroup va être celui que nous avons créer juste avant et la script une forkbomb
+* **-g** permet de spécifier le cgroup dans lequel exécuter la commande 
+* **memory** précise que le cgroup correspond à la mémoire
+* **limited_memory** le nom du cgroup dans lequel nous voulons exéctuter la forkbomb
+* **bash** Lance une nouvelle instance de bash 
+* **-c** indique que la commande qui suit est une chaine de charactère qui contient une commande à exécuter 
+* **':(){ :|:& };:'** la commande à exécuter qui est notre forkbomb
 
 ### Étape 5 : Constater les résultats
 
@@ -94,19 +101,22 @@ Pour comprendre ce qu'il se passe nous pouvons surveiller la consommation de mé
 ➜ ~ cat /sys/fs/cgroup/memory/limited_memory/memory.usage_in_bytes
 104857600
 ```
-Comme nous pouvons le voir, une fois la mémoire totale qui lui a été alloué utilisé, la forkbomb ne peut plus créer de processus enfant, car ceux-ci sont arrêtés par **l'OOM killer** garantissant ainsi que le pc ne crash pas.
+Comme nous pouvons le voir, une fois la mémoire totale qui lui a été alloué utilisé, la forkbomb ne peut créer de processus enfant car ils seront tuer par **l'OOM killer** garantissant ainsi que le pc ne crash pas
+Sous Linux l'OOM killer est un mécanisme de gestion de mémoire. Quand il manque de la mémoire physique, c'est là que l'OOM killer va intervenir en arrêtant des processus pour libérer de la mémoire et éviter que le système ne crash
 
-Si maintenant je décide d'augmenter la mémoire alloué à mon cgroup : 
+Si maintenant je décide d'augment la mémoire alloué à mon cgroup : 
 
 ```bash 
 ➜ ~ echo 200M | sudo tee /sys/fs/cgroup/memory/limited_memory/memory.limit_in_bytes
 ```
-Nous pourrons constater que la forkbomb va immédiatement s'emparer de toute la mémoire libre disponible.
+Nous pourrons cosntater que la forkbomb va immédiatement s'emparer de toute la mémoire libre disponible
 
 ```bash 
 ➜ ~ cat /sys/fs/cgroup/memory/limited_memory/memory.usage_in_bytes
 209715200
 ```
+
+
 
 ## 2. Namespaces et Cgroups
 
