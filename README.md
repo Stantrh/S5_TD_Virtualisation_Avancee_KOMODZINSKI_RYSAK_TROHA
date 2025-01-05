@@ -232,72 +232,60 @@ Le User namespace permet aux utilisateurs et processus dans un environnement d�
 Cela permet de renforcer la sécurité en permettant un accès administrateur dans le conteneur sans compromettre la sécurité du système principal.
 
 
-Pour lancer un namespace on va utiliser cette commande
-
+Pour lancer un namespace on va utiliser cette commande : 
 ```bash
 ➜  ~ unshare --user --map-root-user --mount
 ```
-Cette commande créer un user namespace et remappe l'utilisateur actuel comme root dans ce namespace
+Cette commande crée un user namespace et remappe l'utilisateur actuel comme root dans ce namespace.
 
-On peut verifier cela en lancer la commande suivante
-```bash
-➜  ~ id
+On peut vérifier cela en utilisant ``id``.
 ```
-
-on obtient
-
-```bash
+root@stantheman-Aspire-A515-56:/home/stantheman# id
 uid=0(root) gid=0(root) groups=0(root),65534(nogroup)
 ```
 Cela montre que nous somme bien l'utilisateur root dans le namespace
 
 Cependant nous pouvons aussi vérifier notre UID/GID sur l’hôte depuis le namespace 
 
-```bash
-➜  ~ cat /proc/self/uid_map
 ```
-Et nous obtenons
-
-```bash
+root@stantheman-Aspire-A515-56:/home/stantheman# cat /proc/self/uid_map
          0       1000          1
 ```
 Cela signifie que l'utilisateur 1000 (notre utilisateur actuel sur l’hôte) est remappé comme utilisateur 0 (root) dans le namespace.
 
 
-Maintenant nous pouvons tester l'isolation du namespace et vérifier que nous disposons bien des permissions root dans le namespace mais pas en dehors
+Maintenant nous pouvons tester l'isolation du namespace et vérifier que nous disposons bien des permissions root dans le namespace mais pas en dehors.
 
-Pour cela nous allons lancer la commande suivante
+Pour cela nous allons lancer la commande suivante **à l'intérieur du namespace**.
 
 ```bash
 ➜  ~ mount -t tmpfs tmpfs /mnt
 ```
-Cette commande va monter un système de fichiers temporaire en mémoire
+Ce qui va monter un système de fichiers temporaire en mémoire du namespace.
 
 La commande **mount** va entre autre modifier la table des points de montage du noyau. Il s'agit d'une ressource critique du systeme.
 
-Si j'avais lancé cette commande en dehors du namespace avec le même utilisateur que j'avais créer le namespace avec, j'aurais obtenu
+Si on avait lancé cette même commande sur notre machine hôte, avec l'utilisateur (pas root) avec lequel on avait créé le namespace, on aurait obtenu ce message : 
 
 ```bash 
 mount: /mnt: must be superuser to use mount.
 ```
-En dehors du namespace il me faut bien les permissions pour pouvoir créer le mount, Cela s'explique par le fait que puisque qu'on touche à une ressource critique du système, il est évident qu'il faut une autorisation pour le faire, sinon un utilisateur malveillant pourrait par exemple monter un système de fichiers contenant des binaires malveillants. Il faut donc pouvoir protéger les ressources critiques du système.
+En dehors du namespace il faut bien les permissions pour pouvoir créer le mount. Cela s'explique par le fait que puisque qu'on touche à une ressource critique du système, il est évident qu'il faut une autorisation pour le faire, sinon un utilisateur malveillant pourrait par exemple monter un système de fichiers contenant des binaires malveillants. Il faut donc pouvoir protéger les ressources critiques du système.
 
-Cependant si je le fais dans le namespace, puisque je dispose des permissions superuser cela va me le créer
+On peut vérifier la modification de la table des points de montage dans le namespace via cette commande : 
 
-on peut vérifier que cela a bien marché en lançant
-
-```bash
-➜  ~ mount | grep /mnt
+```
+root@stantheman-Aspire-A515-56:/home/stantheman# mount | grep /mnt
 ```
 et à la dernière ligne cela nous affiche 
 
 ```bash
 tmpfs on /mnt type tmpfs (rw,relatime,uid=1000,gid=1000)
 ```
-Autrement dit la commande que nous avons lancé a bien fonctionné
+Autrement dit, la commande que nous avons lancé a bien fonctionné !
 
-Si cela marche dans le namespace et pas en dehors cela s'explique par le fait que de lancer un namespace user comme nous l'avons fait donne les permissions root **A l'intérieur de namespace** et le namespace n'affecte pas le systeme hote, ce qui veut dire que les resources critique du systeme hôtes sont protéger et ne peuvent être acceder par le namespace.
-En conséquence si j'essayait d'agir en dehors du namespace comme supprimer le répertoire /etc/
+Si cela marche dans le namespace et pas en dehors cela s'explique par le fait que de lancer un namespace user comme nous l'avons fait donne les permissions root **à l'intérieur de namespace** et le namespace n'affecte pas le systeme hote, ce qui veut dire que les resources critique du systeme hôtes sont protégées et ne peuvent être accedées par les processus du namespace.
+En conséquence si j'essayais d'agir en dehors du namespace comme supprimer le répertoire /etc/
 
 ```bash
 ➜  ~ rmdir /ect/
@@ -308,7 +296,7 @@ J'obtiendrai le résultat suivant
 ```bash
 rmdir: failed to remove '/etc/': Permission denied
 ```
-On a donc prouvé que à l'intérieur de namespace je suis bien utilisateur root et dispose donc de tous les privilèges qui vont avec, cepandant, si j'essaie d'agir en dehors du namespace je ne disposerai pas des permissions sudo
+On a donc prouvé qu'à l'intérieur de namespace je suis bien utilisateur root et dispose donc de tous les privilèges qui vont avec, cepandant, si j'essaie d'agir en dehors je ne disposerai pas des permissions de super utilisateur.
 
 ### Time
 Ce type d'isolation est en lien avec la **date**, l'**heure**, l'**uptime**, qu'on peut modifier sans que ça n'ait de répercussions sur le système hôte ou les autres namespaces.
@@ -316,7 +304,6 @@ Ce type d'isolation est en lien avec la **date**, l'**heure**, l'**uptime**, qu'
 Malheureusement avec ma machine ayant un **kernel 6.8.0-49-generic**, le temps est défini par **CLOCK_REALTIME**, dont le système n'autorise pas la modification directe. C'est à dire que même avec un namespace **time** la modification et portée de cette horloge reste globale.
 
 En revanche, sur un WSL, on peut modifier la date.
-
 
 On lance le namespace : 
 ```bash
@@ -327,7 +314,7 @@ Ensuite, il suffit d'entrer cette commande :
 ```bash
 date -s "2000-10-10"
 ```
-Qui a pour but de modifier la date de notre système sur le 10 octobre 2010
+Qui a pour but de modifier la date de notre système pour le 10 octobre 2010.
 
 Si on appelle date à nouveau, on peut voir qu'on est le 10 octobre 2010 :  
 ```bash
@@ -337,8 +324,8 @@ Tue Oct 10 00:00:02 CEST 2000
 Ensuite on va vérifier en dehors du namespace avec la commande date que la date est bien toujours celle d'aujourd'hui 
 
 ```bash 
-Sat Jan  4 11:31:30 CET 2025
+➜  ~ Sat Jan  4 11:31:30 CET 2025
 ```
-On obtient bien la date d'aujourd'hui ce qui veut dire que notre namespace a bien isolé l'opération de changement de date
+On obtient bien la date d'aujourd'hui ce qui veut dire que notre namespace a bien isolé l'opération de changement de date, sans répercussion sur notre hôte !
 
 
