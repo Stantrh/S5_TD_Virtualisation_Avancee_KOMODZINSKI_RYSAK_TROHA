@@ -28,7 +28,7 @@ mariadb               latest    a9547599cd87   11 days ago   550MB
 ```
 
 
-Afin de pouvoir accéder au service MariaDB lancé sur le container, il va nous falloir mapper le port du container à celui de notre machine. C'est à dire que docker crée son propre réseau pour ses containers, ils sont donc isolés du du notre (machine hôte). Par défaut, le port de mariadb est ``3306``, on va donc mapper le port 3306 du conteneur au port 3306 de notre machine.
+Afin de pouvoir accéder au service MariaDB lancé sur le container, il va nous falloir mapper le port du container à celui de notre machine. C'est à dire que docker crée son propre réseau pour ses containers, ils sont donc isolés du nôtre (machine hôte). Par défaut, le port de mariadb est ``3306``, on va donc mapper le port 3306 du conteneur au port 3306 de notre machine.
 
 
 Mais tout d'abord, on va créer un fichier **.env** qui comportera le mot de passe root de MariaDB.
@@ -78,7 +78,6 @@ Query OK, 0 rows affected (0,025 sec)
 ```
 
 
-##### Question 4)
 Maintenant, on liste les contenurs : 
 ```bash
 ➜  ~ docker ps
