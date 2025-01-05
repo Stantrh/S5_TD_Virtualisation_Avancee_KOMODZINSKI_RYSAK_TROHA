@@ -26,7 +26,7 @@ A partir de ce [Dockerfile](Dockerfile) on peut construire notre image, puis l'i
 ```bash
 docker build -t ubuntu-apache-php .
 ```
-Une fois notre image construire, instancions la avec un conteneur.
+Une fois notre image construite, instancions la avec un conteneur.
 
 ```bash
 docker run -d -p 8000:80 --name apache-php-td5 ubuntu-apache-php
