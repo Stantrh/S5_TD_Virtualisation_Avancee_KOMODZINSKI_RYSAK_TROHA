@@ -77,10 +77,10 @@ Grâce à la commande cgexec nous allons lancer une forkbomb dans le cgroup que 
 ```bash 
 ➜ ~ sudo cgexec -g memory:limited_memory bash -c ':(){ :|:& };:'
 ```
-* **cgexec** nous permet d'exécuter un script ou programme dans un cgroup donnée, en l'occurence notre cgroup va être celui que nous avons créer juste avant et la script une forkbomb
+* **cgexec** nous permet d'exécuter un script ou programme dans un cgroup donnée, en l'occurence notre cgroup va être celui que nous avons créer juste avant et le script une forkbomb
 * **-g** permet de spécifier le cgroup dans lequel exécuter la commande 
 * **memory** précise que le cgroup correspond à la mémoire
-* **limited_memory** le nom du cgroup dans lequel nous voulons exéctuter la forkbomb
+* **limited_memory** le nom du cgroup dans lequel nous voulons exécuter la forkbomb
 * **bash** Lance une nouvelle instance de bash 
 * **-c** indique que la commande qui suit est une chaine de charactère qui contient une commande à exécuter 
 * **':(){ :|:& };:'** la commande à exécuter qui est notre forkbomb
